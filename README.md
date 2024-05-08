@@ -2,14 +2,14 @@ To create a board and make moves, use this code:
 
 main.rs
 
-use chesslib::board::Board;
-use std::io::{self, Write};
-
-fn main() {
-let columns = "abcdefgh";
-let rows = "12345678";
-let board_size = 8;
-let board_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    use chesslib::board::Board;
+    use std::io::{self, Write};
+    
+    fn main() {
+    let columns = "abcdefgh";
+    let rows = "12345678";
+    let board_size = 8;
+    let board_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
     let mut board= Board::new(
         String::from(columns),
