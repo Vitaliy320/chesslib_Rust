@@ -14,10 +14,10 @@ impl Rook {
         } else {
             "r".to_string()
         };
-        Rook {color: color,
+        Rook {color,
             possible_moves: Vec::new(),
             name: String::from("Rook"),
-            symbol: symbol
+            symbol,
         }
     }
 }

@@ -103,8 +103,6 @@ impl Position {
         let mut column_counter: i32;
         let mut column_coordinate: char;
         let mut row_coordinate: char;
-        let mut empty_squares: i32;
-        let mut square_coordinates: String;
 
         for j in 0..board_rows.len() {
             row = board_rows[j].clone();
@@ -141,9 +139,7 @@ impl Position {
         let piece: Option<Rc<dyn Piece>> = from_square.borrow_mut().get_piece();
         match piece {
             Some(rc_piece) => {
-                let sq1 = from_square.borrow_mut().square_to_str();
                 from_square.borrow_mut().remove_piece();
-                let sq2 = from_square.borrow_mut().square_to_str();
                 to_square.borrow_mut().set_piece(rc_piece);
             },
             None => {}
