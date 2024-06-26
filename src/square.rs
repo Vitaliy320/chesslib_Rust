@@ -1,10 +1,10 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::piece::Piece;
 
 pub struct Square {
     _coordinates: (char, char),
-    _piece: Option<Rc<dyn Piece>>,
+    _piece: Option<Arc<dyn Piece + Sync + Send>>,
 }
 
 impl Square {
@@ -12,11 +12,11 @@ impl Square {
         Square { _coordinates: coordinates, _piece: None }
     }
 
-    pub fn get_piece(&self) -> Option<Rc<dyn Piece>> {
+    pub fn get_piece(&self) -> Option<Arc<dyn Piece + Sync + Send>> {
         self._piece.clone()
     }
 
-    pub fn set_piece(&mut self, piece: Rc<dyn Piece>) {
+    pub fn set_piece(&mut self, piece: Arc<dyn Piece + Sync + Send>) {
         self._piece = Some(piece);
     }
 
@@ -24,7 +24,7 @@ impl Square {
         self._piece = None;
     }
 
-    pub fn capture_piece(&mut self, capturing_piece: Rc<dyn Piece>) {
+    pub fn capture_piece(&mut self, capturing_piece: Arc<dyn Piece + Sync + Send>) {
         self._piece = Some(capturing_piece);
     }
 

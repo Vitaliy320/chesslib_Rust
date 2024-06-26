@@ -1,8 +1,10 @@
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::any::TypeId;
-use std::cell::RefCell;
+use std::sync::RwLock;
 use std::hash::Hash;
+use std::sync::Arc;
+use std::borrow::BorrowMut;
+use std::ops::{Deref, DerefMut};
 
 use crate::square::Square;
 use crate::pawn::Pawn;
@@ -15,7 +17,7 @@ use crate::piece::{Piece, DefaultPiece};
 
 pub struct Position {
     _fen: String,
-    _squares: HashMap<String, Rc<RefCell<Square>>>,
+    _squares: HashMap<String, Arc<RwLock<Square>>>,
     _active_color: char,
     _castle_options: String,
     _en_passant_square: String,
@@ -52,30 +54,30 @@ impl Position {
         }
     }
 
-    pub fn set_squares(&mut self, squares: HashMap<String, Rc<RefCell<Square>>>) {
+    pub fn set_squares(&mut self, squares: HashMap<String, Arc<RwLock<Square>>>) {
         self._squares = squares;
     }
 
-    pub fn get_squares(&self) -> &HashMap<String, Rc<RefCell<Square>>> {
+    pub fn get_squares(&self) -> &HashMap<String, Arc<RwLock<Square>>> {
         &self._squares
     }
 
-    fn _create_piece(&self, piece_symbol: char) -> Rc<dyn Piece> {
+    fn _create_piece(&self, piece_symbol: char) -> Arc<dyn Piece + Send + Sync> {
         match piece_symbol {
-            'p' => Rc::new(Pawn::new('b')),
-            'n' => Rc::new(Knight::new('b')),
-            'b' => Rc::new(Bishop::new('b')),
-            'r' => Rc::new(Rook::new('b')),
-            'q' => Rc::new(Queen::new('b')),
-            'k' => Rc::new(King::new('b')),
+            'p' => Arc::new(Pawn::new('b')),
+            'n' => Arc::new(Knight::new('b')),
+            'b' => Arc::new(Bishop::new('b')),
+            'r' => Arc::new(Rook::new('b')),
+            'q' => Arc::new(Queen::new('b')),
+            'k' => Arc::new(King::new('b')),
 
-            'P' => Rc::new(Pawn::new('w')),
-            'N' => Rc::new(Knight::new('w')),
-            'B' => Rc::new(Bishop::new('w')),
-            'R' => Rc::new(Rook::new('w')),
-            'Q' => Rc::new(Queen::new('w')),
-            'K' => Rc::new(King::new('w')),
-            _ => {Rc::new(DefaultPiece::new())},
+            'P' => Arc::new(Pawn::new('w')),
+            'N' => Arc::new(Knight::new('w')),
+            'B' => Arc::new(Bishop::new('w')),
+            'R' => Arc::new(Rook::new('w')),
+            'Q' => Arc::new(Queen::new('w')),
+            'K' => Arc::new(King::new('w')),
+            _ => {Arc::new(DefaultPiece::new())},
         }
     }
 
@@ -99,7 +101,7 @@ impl Position {
         board_rows.reverse();
 
         let mut row: String;
-        let mut piece: Rc<dyn Piece>;
+        let mut piece: Arc<dyn Piece>;
         let mut column_counter: i32;
         let mut column_coordinate: char;
         let mut row_coordinate: char;
@@ -118,16 +120,19 @@ impl Position {
                                                      .nth(column_counter as usize)
                                                      .unwrap();
 
-                    let mut square = self.get_square_by_coordinates((column_coordinate.clone(),
+                    let mut arc_square = self.get_square_by_coordinates((column_coordinate.clone(),
                                                     row_coordinate.clone()));
-                    &square.borrow_mut().set_piece(piece);
-                    column_counter += 1;
+                    if let Ok(mut guard) = arc_square.write() {
+                        let mut square_ref = guard.deref_mut();
+                        square_ref.set_piece(piece);
+                        column_counter += 1;
+                    };
                 }
             }
         }
     }
 
-    pub fn get_square_by_coordinates(&self, coordinates: (char, char)) -> Rc<RefCell<Square>> {
+    pub fn get_square_by_coordinates(&self, coordinates: (char, char)) -> Arc<RwLock<Square>> {
         let key: String = coordinates.0.to_string() + &coordinates.1.to_string();
         self._squares.get(&key).unwrap().clone()
     }
@@ -136,14 +141,18 @@ impl Position {
         let mut from_square = self.get_square_by_coordinates(move_from);
         let mut to_square = self.get_square_by_coordinates(move_to);
 
-        let piece: Option<Rc<dyn Piece>> = from_square.borrow_mut().get_piece();
-        match piece {
-            Some(rc_piece) => {
-                from_square.borrow_mut().remove_piece();
-                to_square.borrow_mut().set_piece(rc_piece);
-            },
-            None => {}
-        }
+        if let (Ok(mut from_guard), Ok(mut to_guard)) = (from_square.write(), to_square.write()) {
+            let mut from_square_ref = from_guard.deref_mut();
+            let mut to_square_ref = to_guard.deref_mut();
+
+            let piece = from_square_ref.get_piece();
+            if let Some(piece_) = &piece {
+                from_square_ref.borrow_mut().remove_piece();
+                to_square_ref.borrow_mut().set_piece(Arc::clone(piece_));
+            }
+            let s = from_square_ref.square_to_str();
+            let a = 'a';
+        };
     }
 }
 

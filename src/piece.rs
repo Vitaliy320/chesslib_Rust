@@ -1,4 +1,6 @@
-pub trait Piece {
+use crate::pawn::Pawn;
+
+pub trait Piece: Send + Sync {
 
     fn get_possible_moves(&self) -> &Vec<String>;
     fn set_possible_moves(&mut self, moves: Vec<String>);
@@ -35,3 +37,6 @@ impl Piece for DefaultPiece {
         &self.symbol
     }
 }
+
+unsafe impl Send for DefaultPiece {}
+unsafe impl Sync for DefaultPiece {}

@@ -1,3 +1,4 @@
+use crate::pawn::Pawn;
 use crate::piece::Piece;
 
 pub struct Rook {
@@ -39,3 +40,6 @@ impl Piece for Rook {
         &self.symbol
     }
 }
+
+unsafe impl Send for Rook {}
+unsafe impl Sync for Rook {}

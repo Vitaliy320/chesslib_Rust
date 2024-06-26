@@ -1,7 +1,8 @@
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::ops::DerefMut;
+use std::sync::Arc;
+use std::sync::RwLock;
 
 use crate::square::Square;
 use crate::position::Position;
@@ -12,15 +13,15 @@ pub struct Board {
     board_fen: String,
     columns: String,
     rows: String,
-    _position: Rc<RefCell<Position>>,
-    _board_rows: Vec<Vec<Rc<RefCell<Square>>>>,
+    _position: Arc<RwLock<Position>>,
+    _board_rows: Vec<Vec<Arc<RwLock<Square>>>>,
 }
 
 impl Clone for Board {
     fn clone(&self) -> Self {
         let cloned_position = self._position.clone();
-        let cloned_board_rows: Vec<Vec<Rc<RefCell<Square>>>> = self._board_rows.iter()
-            .map(|row| row.iter().map(|cell| Rc::clone(cell)).collect()).collect();
+        let cloned_board_rows: Vec<Vec<Arc<RwLock<Square>>>> = self._board_rows.iter()
+            .map(|row| row.iter().map(|cell| Arc::clone(cell)).collect()).collect();
 
 
         let mut board = Board {
@@ -40,7 +41,7 @@ impl Clone for Board {
 impl Board {
     pub fn new(columns: String, number_of_columns: u32, rows: String, number_of_rows: u32,
                fen: String) -> Board {
-        let position = Rc::new(RefCell::new(Position::new(
+        let position = Arc::new(RwLock::new(Position::new(
             columns.clone(),
             number_of_columns,
             rows.clone(),
@@ -54,7 +55,7 @@ impl Board {
             rows,
             number_of_rows,
             board_fen: fen,
-            _position: Rc::clone(&position),
+            _position: Arc::clone(&position),
             _board_rows: Vec::new(),
         };
         board.initialize_board();
@@ -67,7 +68,7 @@ impl Board {
         let mut coordinates_string: String;
         let mut column: char;
         let mut row: char;
-        let mut squares: HashMap<String, Rc<RefCell<Square>>> = HashMap::new();
+        let mut squares: HashMap<String, Arc<RwLock<Square>>> = HashMap::new();
 
         for i in 0..self.number_of_columns {
             column = self.columns.chars().nth(i as usize).unwrap_or('\0');
@@ -75,45 +76,73 @@ impl Board {
                 row = self.rows.chars().nth(j as usize).unwrap_or('\0');
 
                 coordinates_string = column.to_string() + &row.to_string();
-                squares.insert(coordinates_string, Rc::new(RefCell::new(Square::new((column, row)))));
+                squares.insert(coordinates_string, Arc::new(RwLock::new(Square::new((column, row)))));
                 // println!("Coordinates: {:?}", squares.get("a1").unwrap().borrow_mut().get_coordinates())
             }
         }
-        self._position.borrow_mut().set_squares(squares);
+
+        if let Ok(mut guard) = self._position.write(){
+            let mut pos = guard.deref_mut();
+            pos.set_squares(squares);
+        }
+        // self._position.borrow_mut().set_squares(squares);
     }
 
-    pub fn get_position(&self) -> Rc<RefCell<Position>> {
+    pub fn get_position(&self) -> Arc<RwLock<Position>> {
         self._position.clone()
     }
 
     pub fn update_board(&mut self, fen: String) {
-        self._position.borrow_mut().position_from_fen(fen);
+        if let Ok(mut guard) = self._position.write() {
+            let mut pos = guard.deref_mut();
+            pos.position_from_fen(fen);
+        }
+        // self._position.borrow_mut().position_from_fen(fen);
     }
 
     pub fn make_move(&mut self, move_from: (char, char), move_to: (char, char)) {
-        self._position.borrow().make_move(move_from, move_to);
+        if let Ok(mut guard) = self._position.write() {
+            let mut pos = guard.deref_mut();
+            pos.make_move(move_from, move_to);
+        }
+        // self._position.borrow().make_move(move_from, move_to);
     }
 
     pub fn make_move_str(&mut self, move_from: String, move_to: String) {
-        self._position.borrow().make_move(
-            (move_from.chars().nth(0).unwrap(), move_from.chars().nth(1).unwrap()),
-            (move_to.chars().nth(0).unwrap(), move_to.chars().nth(1).unwrap())
-        );
+        if let Ok(mut guard) = self._position.write() {
+            let mut pos = guard.deref_mut();
+            pos.make_move(
+                (move_from.chars().nth(0).unwrap(), move_from.chars().nth(1).unwrap()),
+                (move_to.chars().nth(0).unwrap(), move_to.chars().nth(1).unwrap())
+            );
+            let s = pos.get_square_by_coordinates(('e', '2'))
+                .read()
+                .unwrap()
+                .square_to_str();
+            println!("make_move_str square: {}", s);
+        }
+        // self._position.borrow().make_move(
+        //     (move_from.chars().nth(0).unwrap(), move_from.chars().nth(1).unwrap()),
+        //     (move_to.chars().nth(0).unwrap(), move_to.chars().nth(1).unwrap())
+        // );
     }
 
     pub fn create_board_rows(&mut self) {
-        let mut current_row: Vec<Rc<RefCell<Square>>>;
-        let mut all_rows: Vec<Vec<Rc<RefCell<Square>>>> = Vec::new();
+        let mut current_row: Vec<Arc<RwLock<Square>>>;
+        let mut all_rows: Vec<Vec<Arc<RwLock<Square>>>> = Vec::new();
 
         for j in (0..self.number_of_rows).rev() {
             current_row = Vec::new();
-            for i in 0..self.number_of_columns {
-                current_row.push(
-                    self._position.borrow_mut().get_square_by_coordinates(
-                        (self.columns.chars().nth(i as usize).unwrap(),
-                        self.rows.chars().nth(j as usize).unwrap()))
+            if let Ok(mut guard) = self._position.write() {
+                let mut pos = guard.deref_mut();
+                for i in 0..self.number_of_columns {
+                    current_row.push(
+                        pos.get_square_by_coordinates(
+                            (self.columns.chars().nth(i as usize).unwrap(),
+                            self.rows.chars().nth(j as usize).unwrap()))
 
-                );
+                    );
+                }
             }
             all_rows.push(current_row);
         }
@@ -131,7 +160,7 @@ impl Board {
         rows_vector.push("                  ".to_string());
         rows_vector.push("                  ".to_string());
 
-        let mut row: &Vec<Rc<RefCell<Square>>> = &Vec::new();
+        let mut row: &Vec<Arc<RwLock<Square>>> = &Vec::new();
 
         for i in 0..self._board_rows.len() {
             // row_str = "".to_string();
@@ -141,18 +170,21 @@ impl Board {
             // row_str += &val;
 
             row = &self._board_rows[i];
-            for square in row {
-                match square.borrow_mut().get_piece() {
-                    Some(piece) => {
-                        current_row += piece.get_symbol();
-                        current_row += " ";
-                        row_str += piece.get_symbol();
-                        row_str += " ";
-                    },
-                    None => {
-                        current_row.push_str("  ");
-                        row_str += " ";
-                    },
+            for mut square in row {
+                if let Ok(mut guard) = square.write() {
+                    let sq = guard.deref_mut();
+                    match sq.get_piece() {
+                        Some(piece) => {
+                            current_row += piece.get_symbol();
+                            current_row += " ";
+                            row_str += piece.get_symbol();
+                            row_str += " ";
+                        },
+                        None => {
+                            current_row.push_str("  ");
+                            row_str += " ";
+                        },
+                    }
                 }
             }
             rows_str.push_str("\n");

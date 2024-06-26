@@ -39,3 +39,6 @@ impl Piece for Bishop {
         &self.symbol
     }
 }
+
+unsafe impl Send for Bishop {}
+unsafe impl Sync for Bishop {}

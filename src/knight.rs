@@ -1,3 +1,4 @@
+use crate::bishop::Bishop;
 use crate::piece::Piece;
 
 pub struct Knight {
@@ -39,3 +40,6 @@ impl Piece for Knight {
         &self.symbol
     }
 }
+
+unsafe impl Send for Knight {}
+unsafe impl Sync for Knight {}
